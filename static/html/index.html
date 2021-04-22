@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>chatroom test</title>
+        
+    </head>
+    <body>
+        <div id="room">
+            <input type="text" v-model="input.roomname">
+            <br/>
+            <input type="text" v-model="input.username">
+            <br/>
+            <input @keyup.enter="send" type="text" v-model="input.message">
+            <button  @click="send">send</button>
+            <ul>
+                <li v-for="item in msg">
+                    ${item.username} 发送了
+                    ${item.message}
+                    <br>
+                    聊天室：
+                    ${item.roomname}
+                </li>
+            </ul>
+        </div>
+    </body>
+    <script charset="utf-8" src="/js/vue.js"></script>
+    <!-- <script charset="utf-8" src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script> -->
+    <script>
+        var sock=null
+        var wsURL="ws://127.0.0.1:8080/WS"
+        var app=new Vue({
+            delimiters:['${','}'],
+            el:"#room",
+            data:function(){
+                return{
+                    msg:[],
+                    input:{
+                        username:"",
+                        message:"",
+                        roomname:"room1"
+                    },
+                    test:"hello"
+                }
+            },
+            methods:{
+                send:function(){
+                    //this.msg.push(this.input)
+                    if (sock.readyState==1){
+                        sock.send(JSON.stringify(this.input))
+                        this.input.message=""
+                    }else{
+                        alert("socket is closed")
+                    }
+                    
+                }
+            },
+            created:function(){
+                var that=this
+                console.log("Vue is created",that.test)
+                sock=new WebSocket(wsURL)
+                sock.onopen=function(){
+                    console.log("connect to "+wsURL)
+                }
+                sock.onclose=function(e){
+                    console.log("close the sock with code "+e.code)
+                }
+                sock.onmessage=function(e){
+                    console.log("receive message "+e.data)
+                    receive=JSON.parse(e.data)
+                    if (receive.username==that.input.username){
+                        receive.username="我"
+                    }
+                    that.msg.push(receive)
+                }
+            }
+        })
+    </script>
+</html>
