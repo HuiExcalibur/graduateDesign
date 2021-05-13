@@ -1,4 +1,4 @@
-package main
+package room
 
 import (
 	"fmt"
@@ -15,19 +15,26 @@ const (
 )
 
 type User struct {
-	addr string
+	Addr string
 
-	room *Room
+	Hub *Hub
 
-	conn *websocket.Conn
+	Rooms []string
 
-	send chan Msg
+	Conn *websocket.Conn
+
+	Send chan Msg
 }
 
 type Msg struct {
+	//发送消息的用户名称
 	Username string `json:"username"`
-	Message  string `json:"message"`
-	Room     string `json:"roomname"`
+
+	//发送的消息
+	Data string `json:"message"`
+
+	//消息所属的房间
+	Room string `json:"roomname"`
 }
 
 // var (
@@ -35,22 +42,22 @@ type Msg struct {
 // 	space   = []byte{' '}
 // )
 
-func (u *User) read() {
+func (u *User) Read() {
 	defer func() {
-		u.room.unRegister <- u
-		u.conn.Close()
+		u.Hub.UnRegisterUser <- u
+		u.Conn.Close()
 	}()
 
-	u.conn.SetReadLimit(maxMessageSize)
-	u.conn.SetReadDeadline(time.Now().Add(pongWait))
-	u.conn.SetPongHandler(func(string) error {
-		u.conn.SetReadDeadline(time.Now().Add(pongWait))
+	u.Conn.SetReadLimit(maxMessageSize)
+	u.Conn.SetReadDeadline(time.Now().Add(pongWait))
+	u.Conn.SetPongHandler(func(string) error {
+		u.Conn.SetReadDeadline(time.Now().Add(pongWait))
 		return nil
 	})
 
 	for {
 		var message Msg
-		err := u.conn.ReadJSON(&message)
+		err := u.Conn.ReadJSON(&message)
 		if err != nil {
 			fmt.Println("read json error :", err)
 			break
@@ -66,27 +73,27 @@ func (u *User) read() {
 		// message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
 
 		fmt.Println(message)
-		u.room.broadcast <- message
+		u.Hub.message <- message
 	}
 }
 
-func (u *User) write() {
+func (u *User) Write() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
-		u.conn.Close()
+		u.Conn.Close()
 	}()
 
 	for {
 		select {
-		case message, ok := <-u.send:
-			u.conn.SetWriteDeadline(time.Now().Add(writeWait))
+		case message, ok := <-u.Send:
+			u.Conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
-				u.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				u.Conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
 
-			err := u.conn.WriteJSON(message)
+			err := u.Conn.WriteJSON(message)
 			if err != nil {
 				fmt.Println("send json error ", err)
 				return
@@ -109,8 +116,8 @@ func (u *User) write() {
 			// 	return
 			// }
 		case <-ticker.C:
-			u.conn.SetWriteDeadline(time.Now().Add(writeWait))
-			if err := u.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+			u.Conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := u.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}
 		}

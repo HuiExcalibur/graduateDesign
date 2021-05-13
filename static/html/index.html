@@ -1,78 +1,62 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <title>chatroom test</title>
-        
-    </head>
-    <body>
-        <div id="room">
-            <input type="text" v-model="input.roomname">
-            <br/>
-            <input type="text" v-model="input.username">
-            <br/>
-            <input @keyup.enter="send" type="text" v-model="input.message">
-            <button  @click="send">send</button>
-            <ul>
-                <li v-for="item in msg">
-                    ${item.username} 发送了
-                    ${item.message}
-                    <br>
-                    聊天室：
-                    ${item.roomname}
-                </li>
-            </ul>
-        </div>
-    </body>
-    <script charset="utf-8" src="/js/vue.js"></script>
-    <!-- <script charset="utf-8" src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script> -->
-    <script>
-        var sock=null
-        var wsURL="ws://127.0.0.1:8080/WS"
-        var app=new Vue({
-            delimiters:['${','}'],
-            el:"#room",
-            data:function(){
-                return{
-                    msg:[],
-                    input:{
-                        username:"",
-                        message:"",
-                        roomname:"room1"
-                    },
-                    test:"hello"
-                }
-            },
-            methods:{
-                send:function(){
-                    //this.msg.push(this.input)
-                    if (sock.readyState==1){
-                        sock.send(JSON.stringify(this.input))
-                        this.input.message=""
-                    }else{
-                        alert("socket is closed")
-                    }
-                    
-                }
-            },
-            created:function(){
-                var that=this
-                console.log("Vue is created",that.test)
-                sock=new WebSocket(wsURL)
-                sock.onopen=function(){
-                    console.log("connect to "+wsURL)
-                }
-                sock.onclose=function(e){
-                    console.log("close the sock with code "+e.code)
-                }
-                sock.onmessage=function(e){
-                    console.log("receive message "+e.data)
-                    receive=JSON.parse(e.data)
-                    if (receive.username==that.input.username){
-                        receive.username="我"
-                    }
-                    that.msg.push(receive)
-                }
-            }
-        })
-    </script>
+<head>
+	<title>chatRoom</title>
+	<link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+	<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+	<script src="https://unpkg.com/element-ui/lib/index.js"></script>
+	<link rel="stylesheet" type="text/css" href="public/css/main.css">
+</head>
+<body>
+	<div class="chat-app" id="vueapp">
+		<el-row>
+			<div class="header-div"></div>
+		</el-row>
+		<el-container style="flex: 1;overflow: auto;">
+			<el-aside width="25%">
+				<el-menu>
+					<el-menu-item>
+						<template slot="title">导航一</template>
+					</el-menu-item>
+					<el-menu-item-group index="1">
+						<el-menu-item-group title="分组1">
+							<template slot="title">我的房间</template>
+							<el-menu-item v-for="room in rooms" @click="read(room)">${room}</el-menu-item>
+						</el-menu-item-group>
+						<el-menu-item-group title="选项">
+							<el-menu-item index="1-3">搜索房间</el-menu-item>
+						</el-menu-item-group>
+					</el-menu-item-group>
+				</el-menu>
+			</el-aside>
+			<el-container width="75%">
+				<el-header>
+					${room_name}
+				</el-header>
+				<el-main id="show_messages">
+
+					<div v-for="item in messages" :class="item.username==username?'my-msg-div':'other-msg-div'" v-show="item.roomname==room_name">
+						
+						<el-tag effect="dark" type="info" class="other-avator" v-show="item.username!=username">${item.username}</el-tag>
+						<el-tag :type="item.username==username?'success':''">${item.message}</el-tag>
+						<el-tag effect="dark" type="info" class="my-avator" v-show="item.username==username">${item.username}</el-tag>
+					</div>
+					
+				</el-main>
+				<el-footer height="30%">
+					<div class="placeholder">Footer</div>
+					<el-input clearable v-model="username" placeholder="请输入用户名"></el-input>
+					<el-input clearable @keyup.enter.native="send_message" v-model="input" placeholder="请输入内容">
+						<el-button slot="append" @click="send_message">send</el-button>
+					</el-input>
+				</el-footer>
+			</el-container>
+		</el-container>
+		<el-row>
+			<div class="footer-div"></div>
+		</el-row>
+	</div>
+
+	<script type="text/javascript" src="public/js/main.js"></script>
+</body>
 </html>

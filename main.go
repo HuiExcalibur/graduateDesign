@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"Shaw/goWeb/chatRoom/room"
+
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
@@ -16,7 +18,7 @@ var wsUpgrader = websocket.Upgrader{
 	},
 }
 
-var cRoom *Room
+var mainHub *room.Hub
 
 func wsHandler(w http.ResponseWriter, r *http.Request) {
 	conn, err := wsUpgrader.Upgrade(w, r, nil)
@@ -25,16 +27,18 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user := &User{
-		addr: conn.RemoteAddr().String(),
-		room: cRoom,
-		conn: conn,
-		send: make(chan Msg, 64),
+	user := &room.User{
+		Addr:  conn.RemoteAddr().String(),
+		Hub:   mainHub,
+		Rooms: []string{"mainRoom"},
+		Conn:  conn,
+		Send:  make(chan room.Msg, 64),
 	}
-
-	user.room.register <- user
-	go user.read()
-	go user.write()
+	fmt.Println(user.Addr)
+	user.Hub.RegisterUser <- user
+	fmt.Println("has register", user.Addr)
+	go user.Read()
+	go user.Write()
 
 	// for {
 	// 	msgtype, msg, err := conn.ReadMessage()
@@ -56,11 +60,16 @@ func test(c *gin.Context) {
 
 func main() {
 	r := gin.Default()
-	cRoom = newRoom()
-	go cRoom.run()
+
+	mainHub = room.NewHub()
+	go mainHub.Run()
+
+	cRoom := room.NewRoom("mainRoom")
+	mainHub.RegisterRoom <- cRoom
 
 	r.LoadHTMLFiles("static/html/index.html")
-	r.Static("/js", "./static/js")
+	// r.Static("/js", "./static/js")
+	r.StaticFS("/public", http.Dir("./static"))
 
 	r.GET("/", test)
 	r.GET("/WS", func(c *gin.Context) {

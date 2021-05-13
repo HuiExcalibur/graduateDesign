@@ -1,40 +1,43 @@
-package main
+package room
 
 type Room struct {
+	name string
+
 	users map[*User]bool
 
 	broadcast chan Msg
 
-	register chan *User
+	Register chan *User
 
-	unRegister chan *User
+	UnRegister chan *User
 }
 
-func newRoom() *Room {
+func NewRoom(roomname string) *Room {
 	return &Room{
+		name:       roomname,
 		users:      make(map[*User]bool),
 		broadcast:  make(chan Msg),
-		register:   make(chan *User),
-		unRegister: make(chan *User),
+		Register:   make(chan *User),
+		UnRegister: make(chan *User),
 	}
 }
 
-func (r *Room) run() {
+func (r *Room) Run() {
 	for {
 		select {
-		case user := <-r.register:
+		case user := <-r.Register:
 			r.users[user] = true
-		case user := <-r.unRegister:
+		case user := <-r.UnRegister:
 			if _, ok := r.users[user]; ok {
-				close(user.send)
+				close(user.Send)
 				delete(r.users, user)
 			}
 		case message := <-r.broadcast:
 			for user := range r.users {
 				select {
-				case user.send <- message:
+				case user.Send <- message:
 				default:
-					close(user.send)
+					close(user.Send)
 					delete(r.users, user)
 				}
 			}
