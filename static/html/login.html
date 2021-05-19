@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>login</title>
+        <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+        <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+        <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+        <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    </head>
+    <body>
+        <div id="login">
+            username: <input v-model="username" placeholder="input your name" type="text">
+            <br>
+            password: <input v-model="password" placeholder="input your password" type="text">
+            <br>
+            <button @click="login">login</button>
+            <br>
+            <button @click="register">register</button>
+            <br>
+            <button @click="getCookie">get cookie</button>
+            <br>
+            <button @click="getroom">get rooms</button>
+            <br>
+            <div>${username}</div>
+            <br>
+            <div>${password}</div>
+            <div v-for="room in rooms">${room}</div>
+        </div>
+    </body>
+    <script>
+        var app = new Vue({
+            delimiters:['${','}'],
+	        el:"#login",
+            data:function(){
+                return{
+                    username:"me",
+                    password:"123",
+                    rooms:[],
+                }
+            },
+            methods:{
+                login:function(){
+                    var that=this
+                    console.log(that.username,that.password,"login")
+
+                    let data = new FormData()
+                    data.append('username',that.username)
+                    data.append('password',that.password)
+
+                    axios.post('/login', data)
+                    .then(function (response) {
+                        console.log(response.data);
+                        console.log(response.data.status)
+                        if (response.data.status=='success'){
+                            console.log("jump")
+                            window.location.href="/getroom"
+                        }
+                    })
+                    .catch(function (error) {
+                        console.log(error);
+                    });
+                },
+                register:function(){
+                    console.log(this.username,this.password,"register")
+
+                    let data=new FormData()
+                    data.append('username',this.username)
+                    data.append('password',this.password)
+
+                    axios.post('/register', data)
+                    .then(function (response) {
+                        console.log(response.data);
+                    })
+                    .catch(function (error) {
+                        console.log(error);
+                    });
+                },
+                getCookie:function(){
+                    var cn=document.cookie.split(';')
+                    for (var i=0;i<cn.length;i++){
+                        value=cn[i].trim().split('=')
+                        
+                        console.log("key ",value[0],"value",value[1])
+                        // console.log("cookie",i," is ",cn[i])
+                    }
+                },
+                getroom:function(){
+                    var that=this
+                    axios.get('/getroom')
+                    .then(function(response){
+                        console.log(response.data)
+                        that.rooms=that.rooms.concat(response.data.rooms)
+                    })
+                    .catch(function(err){
+
+                    });
+                }
+            }
+        })
+    </script>
+</html>

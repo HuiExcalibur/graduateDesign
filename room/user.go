@@ -15,7 +15,7 @@ const (
 )
 
 type User struct {
-	Addr string
+	Name string
 
 	Hub *Hub
 

@@ -1,11 +1,14 @@
 package room
 
-import "fmt"
+import (
+	"fmt"
+	"sync"
+)
 
 type Hub struct {
-	rooms map[string]*Room
+	Rooms map[string]*Room
 
-	users map[*User]bool
+	Users map[string]*User
 
 	message chan Msg
 
@@ -18,10 +21,25 @@ type Hub struct {
 	UnRegisterUser chan *User
 }
 
-func NewHub() *Hub {
-	return &Hub{
-		rooms:          make(map[string]*Room),
-		users:          make(map[*User]bool),
+var MyHub *Hub
+
+func GetHub() *Hub {
+	if MyHub != nil {
+		return MyHub
+	}
+
+	var once sync.Once
+	once.Do(func() {
+		NewHub()
+	})
+
+	return MyHub
+}
+
+func NewHub() {
+	MyHub = &Hub{
+		Rooms:          make(map[string]*Room),
+		Users:          make(map[string]*User),
 		message:        make(chan Msg),
 		RegisterRoom:   make(chan *Room),
 		UnRegisterRoom: make(chan *Room),
@@ -34,27 +52,27 @@ func (h Hub) Run() {
 	for {
 		select {
 		case room := <-h.RegisterRoom:
-			h.rooms[room.name] = room
+			h.Rooms[room.name] = room
 			fmt.Println("new room", room.name)
 			go room.Run()
 		case room := <-h.UnRegisterRoom:
-			delete(h.rooms, room.name)
+			delete(h.Rooms, room.name)
 		case user := <-h.RegisterUser:
 			fmt.Println("a new user", user)
-			h.users[user] = true
+			h.Users[user.Name] = user
 			for _, v := range user.Rooms {
 				fmt.Println("try to enter a room", v)
-				h.rooms[v].Register <- user
+				h.Rooms[v].Register <- user
 			}
 		case user := <-h.UnRegisterUser:
-			if _, ok := h.users[user]; ok {
+			if _, ok := h.Users[user.Name]; ok {
 				for _, v := range user.Rooms {
-					h.rooms[v].UnRegister <- user
+					h.Rooms[v].UnRegister <- user
 				}
-				delete(h.users, user)
+				delete(h.Users, user.Name)
 			}
 		case message := <-h.message:
-			h.rooms[message.Room].broadcast <- message
+			h.Rooms[message.Room].broadcast <- message
 			// for room, name := range h.rooms {
 			// 	if name == target {
 			// 		room.broadcast <- message
