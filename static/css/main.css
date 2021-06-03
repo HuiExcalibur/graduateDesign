@@ -43,7 +43,7 @@ html, body{
 }
 .header-div{
 	background-color: #eee;
-	min-height:72px;
+	min-height:36px;
 	height: auto;
 }
 .footer-div{

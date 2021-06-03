@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"Shaw/goWeb/chatRoom/controller"
+	"Shaw/goWeb/chatRoom/midware"
 	"Shaw/goWeb/chatRoom/room"
 
 	"github.com/gin-gonic/gin"
@@ -18,7 +19,7 @@ import (
 // 	},
 // }
 
-var mainHub *room.Hub
+// var mainHub *room.Hub
 
 // func wsHandler(w http.ResponseWriter, r *http.Request) {
 // 	conn, err := wsUpgrader.Upgrade(w, r, nil)
@@ -52,7 +53,7 @@ var mainHub *room.Hub
 // 	// }
 // }
 
-func test(c *gin.Context) {
+func index(c *gin.Context) {
 	//c.HTML(200,)
 	fmt.Println("get access from", c.Request.RemoteAddr)
 	c.HTML(http.StatusOK, "index.html", nil)
@@ -61,38 +62,47 @@ func test(c *gin.Context) {
 func main() {
 	r := gin.Default()
 
-	mainHub = room.GetHub()
-	go mainHub.Run()
+	room.GetHub()
 
-	cRoom := room.NewRoom("mainRoom")
-	mainHub.RegisterRoom <- cRoom
+	// cRoom := room.NewRoom("mainRoom")
+	// mainHub.RegisterRoom <- cRoom
 
 	r.LoadHTMLFiles("static/html/index.html", "static/html/login.html")
 	// r.Static("/js", "./static/js")
 	r.StaticFS("/public", http.Dir("./static"))
 
+	// r.GET("/test", func(c *gin.Context) {
+	// 	username, _ := c.Cookie("user")
+	// 	token, _ := c.Cookie("jwt-token")
+	// 	c.JSON(200, gin.H{
+	// 		"user":      username,
+	// 		"jwt-token": token,
+	// 	})
+	// })
 	r.GET("/", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "login.html", nil)
 	})
+
 	r.POST("/login", controller.Login)
 	r.POST("/register", controller.Register)
 
-	r.GET("/test", func(c *gin.Context) {
-		username, _ := c.Cookie("user")
-		token, _ := c.Cookie("jwt-token")
-		c.JSON(200, gin.H{
-			"user":      username,
-			"jwt-token": token,
+	authorize := r.Group("/")
+
+	authorize.Use(midware.Auth())
+	{
+		authorize.GET("/changenickname", controller.ChangeNickname)
+		authorize.GET("/newroom", controller.NewRoom)
+		authorize.GET("/search", controller.SearchRoom)
+		authorize.GET("/quit", controller.QuitRoom)
+		authorize.GET("/enter", controller.EnterRoom)
+		authorize.GET("/getroom", controller.GetRoom)
+		authorize.GET("/history", controller.History)
+		authorize.GET("/index", index)
+		authorize.GET("/WS", func(c *gin.Context) {
+			username, _ := c.Cookie("user")
+			controller.WSHandler(c.Writer, c.Request, username)
 		})
-	})
-	r.GET("/getroom", controller.GetRoom)
-
-	r.GET("/index", test)
-
-	r.GET("/WS", func(c *gin.Context) {
-		username, _ := c.Cookie("user")
-		controller.WSHandler(c.Writer, c.Request, username)
-	})
+	}
 
 	r.Run(":8080")
 }

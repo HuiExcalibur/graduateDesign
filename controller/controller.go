@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	ExpireTime = time.Now().Add(60 * time.Second)
+	ExpireTime = time.Now().Add(72 * time.Hour)
 	jwtKey     = []byte("chat room key")
 )
 
@@ -34,7 +34,7 @@ func Register(c *gin.Context) {
 	if err != nil {
 		log.Println("register failed ", err)
 		c.JSON(http.StatusConflict, gin.H{
-			"failure": err.Error(),
+			"error": err.Error(),
 		})
 
 		// 终止处理
@@ -46,6 +46,7 @@ func Register(c *gin.Context) {
 	if jwtToken != "" {
 		c.SetCookie("jwt-token", jwtToken, int(time.Hour*72), "/", "127.0.0.1", false, false)
 		c.SetCookie("user", username, int(time.Hour*72), "/", "127.0.0.1", false, false)
+		c.SetCookie("nickname", username, int(time.Hour*72), "/", "127.0.0.1", false, false)
 
 		c.JSON(http.StatusOK, gin.H{
 			"status": "success",
@@ -64,11 +65,11 @@ func Login(c *gin.Context) {
 	password := c.PostForm("password")
 
 	db := data.GetDB()
-	err := db.Login(username, password)
+	nickname, err := db.Login(username, password)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"status":   "failure",
-			"failure":  err.Error(),
+			"error":    err.Error(),
 			"username": username,
 			"password": password,
 		})
@@ -82,7 +83,7 @@ func Login(c *gin.Context) {
 	if jwtToken != "" {
 		c.SetCookie("jwt-token", jwtToken, int(time.Hour*72), "/", "127.0.0.1", false, false)
 		c.SetCookie("user", username, int(time.Hour*72), "/", "127.0.0.1", false, false)
-
+		c.SetCookie("nickname", nickname, int(time.Hour*72), "/", "127.0.0.1", false, false)
 		// c.JSON(http.StatusBadGateway, gin.H{
 		// 	"status": "success",
 		// })
@@ -104,6 +105,15 @@ func NewRoom(c *gin.Context) {
 	roonmane := c.Query("roomname")
 	username := c.Query("username")
 
+	db := data.GetDB()
+	err := db.NewRoom(roonmane, username)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"status": "failure",
+		})
+		c.Abort()
+		return
+	}
 	//new room in the hub
 	hub := room.GetHub()
 
@@ -114,17 +124,6 @@ func NewRoom(c *gin.Context) {
 	new_room.Register <- member
 
 	//new room in the database
-	db := data.GetDB()
-	err := db.NewRoom(roonmane)
-	if err != nil {
-		new_room.UnRegister <- member
-		hub.UnRegisterRoom <- new_room
-		c.JSON(http.StatusOK, gin.H{
-			"status": "failure",
-		})
-		c.Abort()
-		return
-	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"status": "success",
@@ -135,6 +134,10 @@ func GetRoom(c *gin.Context) {
 	username, err := c.Cookie("user")
 	if err != nil {
 		log.Println(err)
+		c.JSON(http.StatusOK, gin.H{
+			"status": "failure",
+			"error":  err.Error(),
+		})
 		return
 	}
 
@@ -144,26 +147,71 @@ func GetRoom(c *gin.Context) {
 
 	if err != nil {
 		log.Println(err)
+		c.JSON(http.StatusOK, gin.H{
+			"status": "failure",
+			"error":  err.Error(),
+		})
 		return
 	}
 	log.Println("get room success ", ret)
 
 	c.JSON(http.StatusOK, gin.H{
-		"rooms": ret,
+		"status": "success",
+		"rooms":  ret,
 	})
 }
 
-func DelRoom(c *gin.Context) {
-	roomname := c.Query("roomname")
-
-	hub := room.GetHub()
-	delRoom := hub.Rooms[roomname]
-	hub.UnRegisterRoom <- delRoom
+func SearchRoom(c *gin.Context) {
+	keyword := c.Query("key")
 
 	db := data.GetDB()
-	err := db.DelRoom(roomname)
+	ret, err := db.SearchRoom(keyword)
 	if err != nil {
-		hub.RegisterRoom <- delRoom
+		c.JSON(http.StatusOK, gin.H{
+			"error":  err.Error(),
+			"status": "failure",
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"rooms":  ret,
+	})
+}
+
+func EnterRoom(c *gin.Context) {
+	roomname := c.Query("roomname")
+	username, _ := c.Cookie("user")
+
+	db := data.GetDB()
+	err := db.EnterRoom(roomname, username)
+	if err != nil {
+
+		c.JSON(http.StatusOK, gin.H{
+			"status": "failure",
+		})
+		return
+	}
+
+	hub := room.GetHub()
+
+	enterRoom := hub.Rooms[roomname]
+	enterUser := hub.Users[username]
+
+	enterRoom.Register <- enterUser
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+	})
+}
+
+func QuitRoom(c *gin.Context) {
+	roomname := c.Query("roomname")
+	username := c.Query("username")
+
+	db := data.GetDB()
+	err := db.QuitRoom(roomname, username)
+	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"status": "failure",
 		})
@@ -171,13 +219,68 @@ func DelRoom(c *gin.Context) {
 		return
 	}
 
+	hub := room.GetHub()
+	quitRoom := hub.Rooms[roomname]
+	quitUser := hub.Users[username]
+	// hub.UnRegisterRoom <- quitRoom
+	quitRoom.UnRegister <- quitUser
+
 	c.JSON(http.StatusOK, gin.H{
 		"status": "success",
 	})
 }
 
 func History(c *gin.Context) {
-	//TODO:
+	roomname := c.Query("roomname")
+	username, _ := c.Cookie("user")
+
+	db := data.GetDB()
+	rows, err := db.History(roomname)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"error":  err.Error(),
+			"status": "failure",
+		})
+		c.Abort()
+		return
+	}
+
+	var msg room.Msg
+	hub := room.GetHub()
+	user := hub.Users[username]
+
+	for rows.Next() {
+		err := rows.Scan(&msg.Data, &msg.Username)
+		if err != nil {
+			return
+		}
+		msg.Room = roomname
+		user.Send <- msg
+		// hub.History <- msg
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+	})
+}
+
+func ChangeNickname(c *gin.Context) {
+	userName, _ := c.Cookie("user")
+	nickname := c.Query("nickname")
+
+	db := data.GetDB()
+	err := db.ChangeNickname(userName, nickname)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"status": "failure",
+			"error":  err.Error(),
+		})
+
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+	})
 }
 
 func SetToken(username, password string) string {

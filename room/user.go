@@ -1,6 +1,7 @@
 package room
 
 import (
+	"Shaw/goWeb/chatRoom/data"
 	"fmt"
 	"time"
 
@@ -73,7 +74,8 @@ func (u *User) Read() {
 		// message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
 
 		fmt.Println(message)
-		u.Hub.message <- message
+		data.GetDB().NewMessage(message.Username, message.Room, message.Data)
+		u.Hub.Message <- message
 	}
 }
 

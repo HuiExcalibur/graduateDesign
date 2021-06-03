@@ -6,9 +6,109 @@
         <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
         <script src="https://unpkg.com/element-ui/lib/index.js"></script>
         <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+        <style>
+            .login{
+              margin-top: 200px;
+              text-align: center;
+            }
+            .input_style{
+              text-align: center;
+              width: 200px;
+              margin-top: 10px;
+            }
+            .login_style{
+              margin-top: 10px;
+              width: 200px;
+            }
+            .err_show{
+                visibility: visible;
+            }
+            .err_hide{
+                visibility: hidden;
+            }
+          </style>
     </head>
     <body>
         <div id="login">
+            <!--flex弹性盒子模型，justify-content：主抽 -->
+            <div style="display: flex;justify-content: center;margin-top: 150px">
+              <el-card style="width: 400px">
+                <div slot="header" class="clearfix">
+                  <span>登录</span>
+                </div>
+                <table>
+                  <tr>
+                    <td>用户名</td>
+                    <td>
+                      <el-input v-model="name" clearable placeholder="请输入用户名"></el-input>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td></td>
+                    <td v-show="name.length<6" style="font-size: 12px;color: red;">
+                        用户名长度小于6位
+                      <!-- <el-input v-model="name" placeholder="请输入用户名"></el-input> -->
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>密码</td>
+                    <td>
+                      <el-input type="password" show-password v-model="pwd" placeholder="请输入密码" @keydown.enter.native="doLogin"></el-input>
+                      <!-- @keydown.enter.native="doLogin"当按下enter键的时候也会执行doLogin方法-->
+                    </td>
+                  </tr>
+                  <tr>
+                    <td></td>
+                    <td v-show="pwd.length<6" style="font-size: 12px;color: red;">
+                        密码长度小于6位
+                      <!-- <el-input v-model="name" placeholder="请输入用户名"></el-input> -->
+                    </td>
+                  </tr>
+                  
+                  <tr>
+                    <!-- 占两行-->
+                    <td colspan="2">
+                      <!-- 点击事件的两种不同的写法v-on:click和 @click-->
+                      <!--<el-button style="width: 300px" type="primary" v-on:click="doLogin">登录</el-button>-->
+                      <el-button style="width: 300px" type="primary" @click="login">登录</el-button>
+                    </td>
+                  </tr>
+                  <tr>
+                    <!-- 占两行-->
+                    <td colspan="2">
+                      <!-- 点击事件的两种不同的写法v-on:click和 @click-->
+                      <!--<el-button style="width: 300px" type="primary" v-on:click="doLogin">登录</el-button>-->
+                      <el-button style="width: 300px" type="primary" @click="register">注册</el-button>
+                    </td>
+                  </tr>
+                </table>
+              </el-card>
+            </div>
+          </div>
+
+
+        <!-- <div class="login" id="login">
+            <div>
+              <span>用户名：</span>
+              <el-input placeholder="请输入用户名" v-model="name" clearable class="input_style"></el-input>
+              <div :class="name.length>=6?'err_hide':'err_show'">长度小于6位</div>
+            </div>
+            <div>
+                <span>密 码：</span>
+              <el-input placeholder="请输入密码" v-model="pwd" show-password class="input_style"></el-input>
+              <div :class="pwd.length>=6?'err_hide':'err_show'">长度小于6位</div>
+             
+            </div>
+            <div>
+              <el-button type="primary" @click="login" class="login_style">登录</el-button>
+            </div>
+            <div>
+                <el-button type="primary" @click="register" class="login_style">注册</el-button>
+            </div>
+        </div> -->
+
+        
+        <!-- <div id="login">
             username: <input v-model="username" placeholder="input your name" type="text">
             <br>
             password: <input v-model="password" placeholder="input your password" type="text">
@@ -25,7 +125,7 @@
             <br>
             <div>${password}</div>
             <div v-for="room in rooms">${room}</div>
-        </div>
+        </div> -->
     </body>
     <script>
         var app = new Vue({
@@ -33,27 +133,42 @@
 	        el:"#login",
             data:function(){
                 return{
-                    username:"me",
-                    password:"123",
-                    rooms:[],
+                    name:"",
+                    pwd:"",
+                    dataRules:{
+                        vacationNote: [{min: 6, message: '角色说明不能少于6个字符', trigger: 'blur'}],
+                    },
+                    // error:{
+                    //     name:"",
+                    //     pwd:"",
+                    // },
                 }
             },
             methods:{
                 login:function(){
+                    if (this.name.length<6||this.pwd.length<6){
+                        alert("重新检查用户名和密码")
+                        return
+                    }
+
                     var that=this
-                    console.log(that.username,that.password,"login")
+                    console.log(that.name,that.pwd,"login")
 
                     let data = new FormData()
-                    data.append('username',that.username)
-                    data.append('password',that.password)
+                    data.append('username',that.name)
+                    data.append('password',that.pwd)
 
                     axios.post('/login', data)
                     .then(function (response) {
+                        console.log(response)
                         console.log(response.data);
                         console.log(response.data.status)
                         if (response.data.status=='success'){
                             console.log("jump")
-                            window.location.href="/getroom"
+                            window.location.href="/index"
+                        }else{
+                            // console.log('跳转失败')
+                            alert(response.data.error)
                         }
                     })
                     .catch(function (error) {
@@ -61,15 +176,26 @@
                     });
                 },
                 register:function(){
-                    console.log(this.username,this.password,"register")
+                    if (this.name.length<6||this.pwd.length<6){
+                        alert("重新检查用户名和密码")
+                        return
+                    }
+                    console.log(this.name,this.pwd,"register")
 
                     let data=new FormData()
-                    data.append('username',this.username)
-                    data.append('password',this.password)
+                    data.append('username',this.name)
+                    data.append('password',this.pwd)
 
                     axios.post('/register', data)
                     .then(function (response) {
                         console.log(response.data);
+                        if (response.data.status=='success'){
+                            console.log("jump")
+                            window.location.href="/index"
+                        }else{
+                            // console.log('跳转失败')
+                            alert(response.data.error)
+                        }
                     })
                     .catch(function (error) {
                         console.log(error);

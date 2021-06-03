@@ -28,16 +28,16 @@ func (r *Room) Run() {
 		case user := <-r.Register:
 			r.users[user] = true
 		case user := <-r.UnRegister:
-			if _, ok := r.users[user]; ok {
-				close(user.Send)
-				delete(r.users, user)
-			}
+			// if _, ok := r.users[user]; ok {
+			// close(user.Send)
+			delete(r.users, user)
+			// }
 		case message := <-r.broadcast:
 			for user := range r.users {
 				select {
 				case user.Send <- message:
 				default:
-					close(user.Send)
+					// close(user.Send)
 					delete(r.users, user)
 				}
 			}
