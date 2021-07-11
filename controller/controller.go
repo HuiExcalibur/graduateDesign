@@ -278,6 +278,7 @@ func ChangeNickname(c *gin.Context) {
 
 		return
 	}
+	c.SetCookie("nickname", nickname, int(time.Hour*72), "/", "127.0.0.1", false, false)
 	c.JSON(http.StatusOK, gin.H{
 		"status": "success",
 	})

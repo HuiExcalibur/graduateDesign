@@ -174,8 +174,17 @@ var app = new Vue({
 			axios.get(url)
 			.then(function(response){
 				console.log(response.data)
-				if (response.data.status=="success"){
+				if(response.data.status=='success'){
+					that.$message({
+						message:'修改成功',
+						type:'success',
+					})
 					that.nickname=that.new_nickname
+				}else{
+					that.$message({
+						message:'操作失败',
+						type:'error',
+					})
 				}
 			})
 			.catch(function(err){
@@ -189,7 +198,7 @@ var app = new Vue({
             for (var i=0;i<cn.length;i++){
                 value=cn[i].trim().split('=')
                         
-                console.log("key ",value[0],"value",value[1])
+                console.log("key ",value[0],"value",decodeURI(value[1]))
 				if (value[0]=='user'){
 					this.username= decodeURI(value[1])
 				}
